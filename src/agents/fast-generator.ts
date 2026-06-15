@@ -130,7 +130,7 @@ OUTPUT FORMAT: A single JSON object (NO markdown, NO fences):
 🚨 CRITICAL RULES:
 1. Generate EXACTLY these 2 files
 2. src/index.css: Tailwind directives (@tailwind base/components/utilities) + custom CSS animations, gradients, scrollbar, etc. Include @import url for Google Fonts matching the theme.
-3. src/App.tsx: MAIN APP CODE - put ALL components INLINE as separate functions (Header, Hero, Features, Products, Pricing, Stats, CTA, Footer, etc) plus a default exported `App` component that uses them
+3. src/App.tsx: MAIN APP CODE - put ALL components INLINE as separate functions (Header, Hero, Features, Products, Pricing, Stats, CTA, Footer, etc) plus a default exported \`App\` component that uses them
 4. Use Vite + React 18 + TypeScript with Tailwind CSS
 5. Use lucide-react for icons (we stub these to emoji automatically)
 6. The App component should import { useState } from 'react' if needed
