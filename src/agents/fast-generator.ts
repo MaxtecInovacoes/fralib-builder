@@ -155,10 +155,24 @@ OUTPUT FORMAT: A single JSON object (NO markdown, NO fences):
 // ============================================================
 
 function extractJSON(text: string): any {
+  if (!text) return null;
   let cleaned = text.trim();
-  cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '');
+
+  // 1) Tenta parse direto (pode já ser JSON puro)
   try { return JSON.parse(cleaned); } catch {}
 
+  // 2) Remove fences markdown ```json ... ``` ou ``` ... ```
+  //    Tenta múltiplas variantes: ```json, ```JSON, ```, com ou sem newline
+  cleaned = cleaned
+    .replace(/^\\?```(?:json)?\s*/i, '')   // início com ou sem backslash
+    .replace(/\\?```\s*$/i, '')            // fim com ou sem backslash
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/```\s*$/i, '')
+    .trim();
+
+  try { return JSON.parse(cleaned); } catch {}
+
+  // 3) Encontra o primeiro '{' e faz matching de braces
   const start = cleaned.indexOf('{');
   if (start === -1) return null;
 
@@ -174,8 +188,37 @@ function extractJSON(text: string): any {
   }
   if (end === -1) return null;
 
-  try { return JSON.parse(cleaned.slice(start, end + 1)); } catch {}
-  try { return JSON.parse(cleaned.slice(start, end + 1).replace(/[\x00-\x1f\x7f]/g, ' ')); } catch {}
+  // 4) Tenta várias estratégias de parse
+  const slice = cleaned.slice(start, end + 1);
+  const attempts = [
+    () => JSON.parse(slice),
+    () => JSON.parse(slice.replace(/[\x00-\x1f\x7f]/g, ' ')),
+    // remove BOM e chars invisíveis
+    () => JSON.parse(slice.replace(/^﻿/, '').replace(/[​-‍﻿]/g, '')),
+    // tenta achar arquivo files: { ... } dentro de texto maior
+    () => {
+      const filesMatch = slice.match(/"files"\s*:\s*\{/);
+      if (!filesMatch) throw new Error('no files key');
+      const filesStart = filesMatch.index! + filesMatch[0].length;
+      // encontra o '}' correspondente
+      let d = 1, fEnd = -1, inS = false, esc = false;
+      for (let i = filesStart; i < slice.length; i++) {
+        const c = slice[i];
+        if (esc) { esc = false; continue; }
+        if (c === '\\') { esc = true; continue; }
+        if (c === '"') { inS = !inS; continue; }
+        if (inS) continue;
+        if (c === '{') d++;
+        else if (c === '}') { d--; if (d === 0) { fEnd = i; break; } }
+      }
+      if (fEnd === -1) throw new Error('no end of files');
+      const filesObj = JSON.parse('{' + slice.slice(filesStart, fEnd + 1) + '}');
+      return { files: filesObj };
+    },
+  ];
+  for (const tryParse of attempts) {
+    try { return tryParse(); } catch {}
+  }
   return null;
 }
 
