@@ -10,7 +10,7 @@
 // Em produção, SEMPRE usa Namehost (Vercel não acessa Tailscale)
 const IS_PROD = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
 const NAMEHOST_URL = 'https://ia.namehost.com.br';
-const NAMEHOST_KEY = 'nh_3HMKMsoj7pboc-uaMCwkdJfzadshpDvpKGiKAOEQNG4';
+const NAMEHOST_KEY = 'nh_rSy6-2E5lkEF_fq613xz4-XhzzVkSj7gp2GUQlkniFA';
 
 // Em prod: Namehost direto. Em dev: pode usar Tailscale (mais rápido).
 // O fallback é desabilitado em prod pra não dobrar tempo de resposta.
@@ -23,7 +23,7 @@ const PRIMARY_KEY = IS_PROD
 
 // Fallback só em dev (em prod, tentar de novo não vai ajudar)
 const FALLBACK_URL = NAMEHOST_URL;
-const FALLBACK_KEY = NAMEHOST_KEY;
+const FALLBACK_KEY = 'nh_rSy6-2E5lkEF_fq613xz4-XhzzVkSj7gp2GUQlkniFA';
 
 export interface LLMMessage {
   role: 'system' | 'user' | 'assistant';
