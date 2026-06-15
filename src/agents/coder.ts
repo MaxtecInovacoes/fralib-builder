@@ -94,7 +94,7 @@ Generate the complete code for this task. Return as JSON: {"files": {"path/to/fi
       { role: 'user', content: prompt },
     ];
 
-    const response = await callLLM(messages, MODELS.SONNET, 8192);
+    const response = await callLLM(messages, MODELS.SONNET, 6144);
     const content = response.content.trim();
     console.log(`[Coder] Response for "${task}": ${content.length} chars`);
 

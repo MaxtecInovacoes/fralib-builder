@@ -47,8 +47,8 @@ async function tryCall(
       max_tokens: maxTokens,
       temperature: 0.7,
     }),
-    // Timeout de 8s pra falhar rápido e cair no fallback
-    signal: AbortSignal.timeout(8000),
+    // Timeout curto pra falhar rápido e cair no fallback
+    signal: AbortSignal.timeout(15000),
   });
 
   if (!response.ok) {

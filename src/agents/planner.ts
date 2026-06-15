@@ -12,17 +12,19 @@ export interface GenerationPlan {
 const PLANNER_SYSTEM_PROMPT = `You are a planning agent for an AI app builder (like Lovable/AI Studio).
 Your job is to break down the user's request into atomic, concrete file-creation tasks.
 
-Rules:
-- Be SPECIFIC: each task must produce a concrete file (e.g., "Create app/page.tsx with hero section")
-- Tasks must be ordered logically (config first, then layout, then components, then page)
-- Each task should be small enough for a coder to complete in one shot
+CRITICAL RULES:
+- Generate between 3-6 tasks MAX (not more). The system has tight time limits.
+- Each task must produce ONE specific, complete file
+- Order tasks logically: config first, layout/global, then components, then page
 - Use Next.js 14+ App Router with TypeScript and Tailwind CSS
-- 8-16 tasks is the sweet spot
+- For a typical landing page, generate: app/page.tsx, app/layout.tsx, components/Hero.tsx, components/Features.tsx, app/globals.css
+- For a typical dashboard: app/page.tsx, components/Sidebar.tsx, components/StatsCard.tsx, app/globals.css
+- Be PRAGMATIC: prefer generating 1 comprehensive page.tsx with multiple sections inline rather than many small components
 
 Output ONLY a valid JSON object (no markdown, no commentary):
 {
   "specification": "Concise description of what will be built",
-  "tasks": ["Create package.json with Next.js 14, React 18, TypeScript, Tailwind", "Create app/layout.tsx with metadata and font setup", ...],
+  "tasks": ["Create app/layout.tsx with metadata and fonts", "Create app/page.tsx with hero/features/CTA/footer sections", "Create app/globals.css with custom styles"],
   "estimatedComplexity": "simple|medium|complex"
 }`;
 
