@@ -117,6 +117,7 @@ export function ChatInterface() {
       let buffer = '';
       let finalFiles: Record<string, string> = {};
       let errorMsg: string | null = null;
+      const eventsReceived = new Set<string>();
 
       while (true) {
         const { done, value } = await reader.read();
@@ -139,6 +140,7 @@ export function ChatInterface() {
 
           try {
             const data = JSON.parse(dataStr);
+            eventsReceived.add(eventType);
 
             switch (eventType) {
               case 'start':
@@ -207,18 +209,35 @@ export function ChatInterface() {
         });
         setFiles(finalFiles);
       } else {
+        // Diagnóstico inteligente baseado em quais eventos chegaram
+        let diagnostic = 'Tente reformular o prompt';
+        if (!eventsReceived.has('start')) {
+          diagnostic = 'Sem resposta do servidor. Verifique sua conexão.';
+        } else if (eventsReceived.has('generating') && !eventsReceived.has('parsing')) {
+          diagnostic = `Tempo esgotado após ${elapsed}s. Prompt muito complexo? Tente algo mais simples.`;
+        } else if (eventsReceived.has('parsing') && !eventsReceived.has('done')) {
+          diagnostic = 'IA respondeu, mas o JSON retornado é inválido. Tente reformular.';
+        } else if (!eventsReceived.has('generating')) {
+          diagnostic = 'IA não iniciou geração. Tente um prompt diferente.';
+        }
+        console.warn('[SSE] Eventos recebidos:', Array.from(eventsReceived));
         addMessage({
           id: generateId(),
           role: 'assistant',
-          content: `❌ Não consegui gerar arquivos. Tente reformular o prompt.`,
+          content: `❌ Não consegui gerar arquivos. ${diagnostic}.`,
           timestamp: new Date(),
         });
       }
     } catch (error) {
+      const errStr = error instanceof Error ? error.message : 'Desconhecido';
+      const isAbort = errStr.includes('aborted') || errStr.includes('closed') || errStr.includes('network');
+      const diagnostic = isAbort
+        ? 'Conexão interrompida. O Vercel tem limite de 60s — tente um prompt mais simples.'
+        : errStr;
       addMessage({
         id: generateId(),
         role: 'assistant',
-        content: `❌ Erro de conexão: ${error instanceof Error ? error.message : 'Desconhecido'}. Tente novamente.`,
+        content: `❌ Erro de conexão: ${diagnostic}. Tente novamente.`,
         timestamp: new Date(),
       });
     } finally {

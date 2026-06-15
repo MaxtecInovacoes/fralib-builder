@@ -9,6 +9,7 @@ export interface DesignTheme {
   description: string;
   emoji: string;
   prompt: string; // Injetado no LLM
+  previewComponent: 'typography' | 'editorial' | 'glass' | 'gradient' | 'luxury';
   // Visual preview
   preview: {
     bg: string;
@@ -24,6 +25,7 @@ export const THEMES: DesignTheme[] = [
     name: 'Bold Typography',
     description: 'Tipografia massiva e impactante',
     emoji: '🅱️',
+    previewComponent: 'typography',
     prompt: `Use BOLD TYPOGRAPHY design system:
 - Massive headlines (text-7xl to text-9xl), ultra-bold font-black
 - Black/white/electric colors (yellow #FFD600, red #FF1744, electric blue)
@@ -42,9 +44,10 @@ Use bg-[#FFD600] or bg-black with text-black for primary backgrounds.`,
   },
   {
     id: 'editorial-aesthetic',
-    name: 'Editorial Aesthetic',
-    description: 'Estilo revista, elegante e refinado',
+    name: 'Editorial',
+    description: 'Estilo revista, elegante',
     emoji: '📰',
+    previewComponent: 'editorial',
     prompt: `Use EDITORIAL AESTHETIC design system (magazine-style):
 - Serif typography (Playfair Display, EB Garamond) for headlines
 - Mix serif + sans-serif (Inter) for body
@@ -65,9 +68,10 @@ Use bg-[#F8F5F0] and font-serif for headlines.`,
   },
   {
     id: 'sophisticated-dark',
-    name: 'Sophisticated Dark',
-    description: 'Dark mode premium com gradientes sutis',
+    name: 'Dark Glass',
+    description: 'Dark premium com glassmorphism',
     emoji: '🌑',
+    previewComponent: 'glass',
     prompt: `Use SOPHISTICATED DARK design system (premium dark mode):
 - Deep black/navy background (#0A0A0F, #0F0F17)
 - Subtle gradients: from-[#1A1A2E] via-[#16213E] to-[#0F3460]
@@ -87,9 +91,10 @@ Use bg-[#0A0A0F] with bg-white/5 cards.`,
   },
   {
     id: 'immersive-ui',
-    name: 'Immersive UI',
-    description: 'Visual impactante com cores vibrantes',
+    name: 'Immersive',
+    description: 'Visual impactante e vibrante',
     emoji: '🎨',
+    previewComponent: 'gradient',
     prompt: `Use IMMERSIVE UI design system (vibrant, full-bleed):
 - Full-viewport sections, parallax effects
 - Vibrant gradients: from-purple-600 via-pink-500 to-orange-400
@@ -110,9 +115,10 @@ Use bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 for hero.`,
   },
   {
     id: 'elegant-dark',
-    name: 'Elegant Dark',
-    description: 'Dark refinado com acentos dourados',
+    name: 'Luxury',
+    description: 'Dark refinado com dourado',
     emoji: '✨',
+    previewComponent: 'luxury',
     prompt: `Use ELEGANT DARK design system (luxury dark):
 - Pure black background (#000000) with subtle warm tones
 - Gold/champagne accents (#D4AF37, #F4E4BC)

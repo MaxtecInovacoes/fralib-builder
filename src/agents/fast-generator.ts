@@ -68,8 +68,15 @@ OUTPUT FORMAT: A single JSON object (NO markdown, NO fences, NO commentary befor
    - Floating elements, hover effects
    - High-quality typography
    - Responsive (mobile-first)
-8. ALL string values: use double quotes, escape newlines as \\n and quotes as \\"
-9. The 7 files listed above are MANDATORY - don't skip any`;
+8. USE REAL IMAGES (no empty placeholders, no placehold.co):
+   - Hero backgrounds: https://images.unsplash.com/photo-XXXXX?w=1920&q=80
+   - Pick photo IDs that match the topic (e.g. coffee, gym, solar, restaurant)
+   - Themed gallery: https://source.unsplash.com/1920x1080/?<keyword>,<keyword>
+   - Card images: https://images.unsplash.com/photo-XXXXX?w=800&q=80
+   - Avatars: https://i.pravatar.cc/200?img=N (1-70)
+   - ALWAYS include 3-5 real images per page in hero + cards + gallery
+9. ALL string values: use double quotes, escape newlines as \\n and quotes as \\"
+10. The 7 files listed above are MANDATORY - don't skip any`;
 
 function extractJSON(text: string): any {
   let cleaned = text.trim();
