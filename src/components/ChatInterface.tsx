@@ -99,7 +99,7 @@ export function ChatInterface() {
     setStatus('Iniciando...');
 
     try {
-      const res = await fetch('/api/generate/stream', {
+      const res = await fetch('/api/generate-stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: finalPrompt }),
