@@ -14,7 +14,8 @@ import {
   Wand2,
   Code,
   Zap,
-  Image as ImageIcon
+  Image as ImageIcon,
+  CheckCircle2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -46,6 +47,8 @@ export function ChatInterface() {
   const { messages, addMessage, isGenerating, setGenerating, setFiles } = useAppStore();
   const [input, setInput] = useState('');
   const [status, setStatus] = useState<string>('');
+  const [elapsed, setElapsed] = useState(0);
+  const [progressFiles, setProgressFiles] = useState<{ name: string; status: 'pending' | 'done' }[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -55,7 +58,7 @@ export function ChatInterface() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, progressFiles, status]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -64,6 +67,19 @@ export function ChatInterface() {
       textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + 'px';
     }
   }, [input]);
+
+  // Timer que conta segundos durante a geração
+  useEffect(() => {
+    if (!isGenerating) {
+      setElapsed(0);
+      return;
+    }
+    const start = Date.now();
+    const interval = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - start) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isGenerating]);
 
   const handleSubmit = async (prompt?: string) => {
     const finalPrompt = (prompt || input).trim();
@@ -79,53 +95,133 @@ export function ChatInterface() {
     addMessage(userMessage);
     setInput('');
     setGenerating(true);
-    setStatus('Pensando...');
+    setProgressFiles([]);
+    setStatus('Iniciando...');
 
     try {
-      setStatus('Gerando app...');
-      const res = await fetch('/api/generate', {
+      const res = await fetch('/api/generate/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: finalPrompt }),
       });
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
-        throw new Error(err.error || `HTTP ${res.status}`);
+      if (!res.ok || !res.body) {
+        throw new Error(`HTTP ${res.status}`);
       }
 
-      const result = await res.json();
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let finalFiles: Record<string, string> = {};
+      let errorMsg: string | null = null;
 
-      if (result.success && Object.keys(result.files || {}).length > 0) {
-        setStatus('');
-        const fileCount = Object.keys(result.files).length;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // Parse SSE: eventos separados por \n\n
+        const events = buffer.split('\n\n');
+        buffer = events.pop() || ''; // mantém o último parcial
+
+        for (const evt of events) {
+          const lines = evt.split('\n');
+          let eventType = 'message';
+          let dataStr = '';
+          for (const line of lines) {
+            if (line.startsWith('event: ')) eventType = line.slice(7).trim();
+            else if (line.startsWith('data: ')) dataStr += line.slice(6);
+          }
+          if (!dataStr) continue;
+
+          try {
+            const data = JSON.parse(dataStr);
+
+            switch (eventType) {
+              case 'start':
+                setStatus('Iniciando geração...');
+                break;
+              case 'thinking':
+                setStatus(data.message || 'Pensando...');
+                break;
+              case 'planning':
+                setStatus(data.message || 'Planejando...');
+                break;
+              case 'connecting':
+                setStatus(data.message || 'Conectando à IA...');
+                break;
+              case 'generating':
+                setStatus(data.message || 'Gerando código...');
+                // Inicializa lista de arquivos esperados
+                if (progressFiles.length === 0) {
+                  setProgressFiles([
+                    { name: 'app/layout.tsx', status: 'pending' },
+                    { name: 'app/page.tsx', status: 'pending' },
+                    { name: 'app/globals.css', status: 'pending' },
+                  ]);
+                }
+                break;
+              case 'file':
+                setProgressFiles(prev => {
+                  const next = [...prev];
+                  const idx = next.findIndex(f => f.name === data.file);
+                  if (idx >= 0) next[idx] = { ...next[idx], status: 'done' };
+                  return next;
+                });
+                setStatus(`✓ ${data.file} criado (${data.index}/${data.total})`);
+                break;
+              case 'parsing':
+                setStatus(data.message || 'Processando...');
+                break;
+              case 'done':
+                if (data.files) finalFiles = data.files;
+                setStatus(`Pronto em ${Math.floor((data.durationMs || 0) / 1000)}s!`);
+                break;
+              case 'error':
+                errorMsg = data.error || 'Erro desconhecido';
+                break;
+            }
+          } catch (parseErr) {
+            console.warn('SSE parse error:', parseErr, dataStr.slice(0, 100));
+          }
+        }
+      }
+
+      if (errorMsg) {
         addMessage({
           id: generateId(),
           role: 'assistant',
-          content: `Pronto! Criei **${fileCount} arquivos** para você. Veja na aba **Código** ou no **Preview** para conferir.`,
+          content: `❌ ${errorMsg}. Tente reformular o prompt.`,
           timestamp: new Date(),
         });
-        setFiles(result.files);
-      } else {
-        setStatus('');
+      } else if (Object.keys(finalFiles).length > 0) {
+        const fileCount = Object.keys(finalFiles).length;
         addMessage({
           id: generateId(),
           role: 'assistant',
-          content: `❌ ${result.error || 'Não consegui gerar o app. Tente reformular o prompt.'}`,
+          content: `Pronto! Criei **${fileCount} arquivos** para você em ${elapsed}s. Veja na aba **Código** ou no **Preview** para conferir.`,
+          timestamp: new Date(),
+        });
+        setFiles(finalFiles);
+      } else {
+        addMessage({
+          id: generateId(),
+          role: 'assistant',
+          content: `❌ Não consegui gerar arquivos. Tente reformular o prompt.`,
           timestamp: new Date(),
         });
       }
     } catch (error) {
-      setStatus('');
       addMessage({
         id: generateId(),
         role: 'assistant',
-        content: `❌ Erro: ${error instanceof Error ? error.message : 'Desconhecido'}. Tente novamente.`,
+        content: `❌ Erro de conexão: ${error instanceof Error ? error.message : 'Desconhecido'}. Tente novamente.`,
         timestamp: new Date(),
       });
     } finally {
       setGenerating(false);
       setStatus('');
+      setProgressFiles([]);
     }
   };
 
@@ -207,9 +303,34 @@ export function ChatInterface() {
                 <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center flex-shrink-0">
                   <Bot className="w-3.5 h-3.5 text-white" strokeWidth={2.5} />
                 </div>
-                <div className="bg-white/5 border border-white/5 rounded-2xl px-4 py-2.5 flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 text-violet-400 animate-spin" />
-                  <span className="text-sm text-white/60">{status || 'Gerando...'}</span>
+                <div className="bg-white/5 border border-white/5 rounded-2xl px-4 py-3 min-w-[280px] max-w-md">
+                  {/* Status + timer estilo Lovable */}
+                  <div className="flex items-center gap-2 mb-2">
+                    <Loader2 className="w-3.5 h-3.5 text-violet-400 animate-spin" />
+                    <span className="text-xs text-white/50 font-mono">Running for {elapsed}s</span>
+                  </div>
+                  <p className="text-sm text-white/80 mb-2">{status}</p>
+
+                  {/* Lista de arquivos sendo criados (estilo Gemini) */}
+                  {progressFiles.length > 0 && (
+                    <div className="space-y-1 mt-2 border-t border-white/5 pt-2">
+                      {progressFiles.map((f, i) => (
+                        <div key={i} className="flex items-center gap-2 text-xs">
+                          {f.status === 'done' ? (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
+                          ) : (
+                            <div className="w-3.5 h-3.5 rounded-full border border-white/20 flex-shrink-0" />
+                          )}
+                          <span className={cn(
+                            'font-mono',
+                            f.status === 'done' ? 'text-white/70' : 'text-white/40'
+                          )}>
+                            {f.name}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
