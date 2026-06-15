@@ -210,6 +210,56 @@ async function emitFiles(
   return valid;
 }
 
+const MAX_RETRIES = 1;
+
+/**
+ * Faz chamada LLM com retry automático se JSON vier truncado ou vazio.
+ * Retorna os arquivos extraídos do JSON.
+ */
+async function callWithRetry(
+  messages: LLMMessage[],
+  maxTokens: number,
+  emit: (e: GenEvent) => void,
+  label: string,
+  retries = MAX_RETRIES
+): Promise<Record<string, string>> {
+  let lastError = '';
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    if (attempt > 0) {
+      emit({ type: 'generating', message: `${label} — retry ${attempt}/${retries}...` });
+      await new Promise(r => setTimeout(r, 1000));
+    }
+    try {
+      const response = await callLLM(messages, MODELS.HAIKU, maxTokens);
+      const content = response.content.trim();
+      console.log(`[FastGen:${label}] attempt ${attempt + 1} | ${content.length} chars | usage:`, response.usage);
+
+      const parsed = extractJSON(content);
+      if (parsed && parsed.files && typeof parsed.files === 'object') {
+        const files: Record<string, string> = {};
+        for (const [path, val] of Object.entries(parsed.files)) {
+          if (typeof val === 'string' && val.length > 10 && validatePath(path)) {
+            files[path] = val;
+          }
+        }
+        if (Object.keys(files).length > 0) {
+          console.log(`[FastGen:${label}] ✓ ${Object.keys(files).length} files extracted`);
+          return files;
+        }
+        lastError = `JSON válido, mas sem arquivos (entries: ${Object.keys(parsed.files || {}).length})`;
+      } else {
+        lastError = content.length > 20 ? content.substring(0, 150) : 'JSON inválido ou ausente';
+        console.warn(`[FastGen:${label}] Invalid JSON (${content.length} chars): ${lastError}`);
+      }
+    } catch (err) {
+      lastError = String(err);
+      console.error(`[FastGen:${label}] Error:`, lastError);
+    }
+  }
+  console.error(`[FastGen:${label}] All ${retries + 1} attempts failed: ${lastError}`);
+  return {};
+}
+
 // ============================================================
 // MODE 1: SINGLE CALL (prompts < 300 chars)
 // ============================================================
@@ -230,26 +280,16 @@ async function generateSingle(
   emit({ type: 'connecting', message: 'Conectando ao Claude (Haiku 4.5)...' });
   emit({ type: 'generating', message: 'Gerando código completo (pode levar 30-60s)...' });
 
-  const response = await callLLM(messages, MODELS.HAIKU, 16000);
-  const content = response.content.trim();
-  console.log(`[FastGen:single] LLM ${Date.now() - start}ms | ${content.length} chars`);
-
+  const files = await callWithRetry(messages, 16000, emit, 'single');
   emit({ type: 'parsing', message: 'Processando resposta da IA...' });
 
-  const parsed = extractJSON(content);
-  if (parsed && parsed.files && typeof parsed.files === 'object') {
-    const files: Record<string, string> = {};
-    for (const [path, val] of Object.entries(parsed.files)) {
-      if (typeof val === 'string' && val.length > 10 && validatePath(path)) {
-        files[path] = val;
-      }
-    }
+  if (Object.keys(files).length > 0) {
     const validPaths = await emitFiles(files, emit);
     if (validPaths.length > 0) {
       const duration = Date.now() - start;
       console.log(`[FastGen:single] ✓ ${validPaths.length} files in ${duration}ms`);
       emit({ type: 'done', files, durationMs: duration });
-      return { success: true, files, specification: parsed.specification || userPrompt, durationMs: duration, mode: 'single' };
+      return { success: true, files, specification: userPrompt, durationMs: duration, mode: 'single' };
     }
   }
 
@@ -271,22 +311,7 @@ async function generateBoilerplate(
     { role: 'system', content: systemPrompt },
     { role: 'user', content: `Build boilerplate for: ${userPrompt}\n\nGenerate ONLY the 6 boilerplate files. The app will be: ${userPrompt.slice(0, 200)}` },
   ];
-
-  const response = await callLLM(messages, MODELS.HAIKU, 4000);
-  const content = response.content.trim();
-  console.log(`[FastGen:boilerplate] LLM | ${content.length} chars`);
-
-  const parsed = extractJSON(content);
-  if (parsed && parsed.files && typeof parsed.files === 'object') {
-    const files: Record<string, string> = {};
-    for (const [path, val] of Object.entries(parsed.files)) {
-      if (typeof val === 'string' && val.length > 10 && validatePath(path)) {
-        files[path] = val;
-      }
-    }
-    return files;
-  }
-  return {};
+  return callWithRetry(messages, 6000, emit, 'boilerplate');
 }
 
 async function generateAppCode(
@@ -299,22 +324,7 @@ async function generateAppCode(
     { role: 'system', content: systemPrompt },
     { role: 'user', content: `Build the application code for: ${userPrompt}\n\nGenerate the index.css with all custom styles + Google Fonts import, and App.tsx with ALL components INLINE (Header, Hero, Features, Products, Pricing, Stats, CTA, Footer, etc) as separate function components. Make it production-ready, cinematic, and use real Unsplash images.` },
   ];
-
-  const response = await callLLM(messages, MODELS.HAIKU, 14000);
-  const content = response.content.trim();
-  console.log(`[FastGen:appcode] LLM | ${content.length} chars`);
-
-  const parsed = extractJSON(content);
-  if (parsed && parsed.files && typeof parsed.files === 'object') {
-    const files: Record<string, string> = {};
-    for (const [path, val] of Object.entries(parsed.files)) {
-      if (typeof val === 'string' && val.length > 10 && validatePath(path)) {
-        files[path] = val;
-      }
-    }
-    return files;
-  }
-  return {};
+  return callWithRetry(messages, 16000, emit, 'appcode');
 }
 
 async function generateParallel(
