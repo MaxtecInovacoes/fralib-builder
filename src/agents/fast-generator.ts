@@ -53,39 +53,40 @@ OUTPUT FORMAT: A single JSON object (NO markdown, NO fences, NO commentary befor
 }
 
 🚨 CRITICAL RULES:
-1. Generate 8-15 files (MORE = better quality, like AI Studio)
+1. Generate 6-10 files (ESSENTIAL files only - not too many!)
 2. Each file MUST be COMPLETE - no placeholders, no "..."
-3. Use Vite + React 18 + TypeScript (NOT Next.js - this is a single-page app)
+3. Use Vite + React 18 + TypeScript
 4. Use Tailwind CSS for styling
-5. Use lucide-react for icons
+5. Use lucide-react for icons (we stub these to emoji)
 6. Use framer-motion for animations (motion/react)
-7. EACH component is SEPARATE file (Header.tsx, Hero.tsx, Features.tsx, Footer.tsx, etc)
-8. App.tsx IMPORTS and COMPOSES all components
-9. The design must be CINEMATIC and STUNNING:
+7. Each component is SEPARATE file (Header.tsx, Hero.tsx, Features.tsx, etc)
+8. App.tsx IMPORTS and composes all components
+9. MAKE IT CINEMATIC AND STUNNING:
    - Full-viewport hero sections
    - Smooth animations and transitions
    - Glassmorphism cards (backdrop-blur, bg-white/5)
    - Gradient backgrounds (bg-gradient-to-br from-X via-Y to-Z)
-   - Floating elements, parallax effects
+   - Floating elements, hover effects
    - High-quality typography
-   - Hover effects with scale/color changes
    - Responsive (mobile-first)
 10. ALL string values: use double quotes, escape newlines as \\n and quotes as \\"
-11. Make it FEEL like a $10k landing page from a top design agency
+11. KEEP EACH FILE UNDER 300 LINES - be concise but impactful
 
-EXAMPLE FILE STRUCTURE FOR A LANDING PAGE:
-- index.html, package.json, vite.config.ts, tsconfig.json
-- src/main.tsx, src/App.tsx, src/index.css
+EXAMPLE FILE STRUCTURE (FOLLOW THIS PATTERN):
+- index.html (basic)
+- package.json (with vite, react, typescript, tailwind, lucide-react, framer-motion)
+- vite.config.ts (basic)
+- tsconfig.json (basic)
+- src/main.tsx (entry)
+- src/App.tsx (composes components)
+- src/index.css (with @tailwind directives)
 - src/components/Header.tsx
 - src/components/Hero.tsx
-- src/components/Features.tsx
-- src/components/Stats.tsx
-- src/components/Testimonials.tsx
-- src/components/Pricing.tsx
-- src/components/CTA.tsx
+- src/components/Features.tsx (or similar sections)
 - src/components/Footer.tsx
 
-Remember: QUALITY OVER QUANTITY of features. But 10+ files shows organization.`;
+Don't generate extra config files (tailwind.config.js can be skipped - use defaults).
+Skip .env.example, .gitignore, metadata.json - we only need the code files.`;
 
 function extractJSON(text: string): any {
   let cleaned = text.trim();
@@ -136,7 +137,7 @@ export async function fastGenerate(
     emit({ type: 'connecting', message: 'Conectando ao Claude (Haiku 4.5)...' });
     emit({ type: 'generating', message: 'Gerando código completo (pode levar 30-60s)...' });
 
-    const response = await callLLM(messages, MODELS.HAIKU, 32000);
+    const response = await callLLM(messages, MODELS.HAIKU, 16000);
     const content = response.content.trim();
     const llmTime = Date.now() - start;
     console.log(`[FastGen] LLM ${llmTime}ms | ${content.length} chars`);
