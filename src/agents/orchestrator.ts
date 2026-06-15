@@ -1,6 +1,6 @@
 /**
  * Orchestrator - Coordena planner + coder
- * Usa LiteLLM para máxima velocidade
+ * Estratégia: Planner gera tasks → cada task roda em paralelo com coder → agrega arquivos
  */
 import { planGeneration } from './planner';
 import { generateCode } from './coder';
@@ -21,33 +21,55 @@ export async function generateApp(
   console.log('[Orchestrator] Starting generation for:', userPrompt);
 
   try {
-    // Phase 1: Plan (rápido com LiteLLM)
+    // Phase 1: Plan
     console.log('[Orchestrator] Phase 1: Planning...');
     const plan = await planGeneration(userPrompt);
-    console.log('[Orchestrator] Plan created:', plan.tasks.length, 'tasks');
+    console.log('[Orchestrator] Plan created:', plan.tasks.length, 'tasks |', plan.estimatedComplexity);
+
+    if (!plan.tasks || plan.tasks.length === 0) {
+      throw new Error('Planner returned no tasks');
+    }
 
     const allFiles: Record<string, string> = { ...existingFiles };
 
-    // Phase 2: Generate for each task (paralelo para velocidade)
-    console.log('[Orchestrator] Phase 2: Generating code...');
+    // Phase 2: Generate for each task (paralelo pra velocidade)
+    console.log('[Orchestrator] Phase 2: Generating code (parallel)...');
 
-    // Gerar em batch para velocidade
-    const taskResults = await Promise.all(
-      plan.tasks.map(async (task) => {
-        console.log('[Orchestrator] Generating:', task);
-        return await generateCode(task, allFiles);
+    const taskResults = await Promise.allSettled(
+      plan.tasks.map(async (task, i) => {
+        console.log(`[Orchestrator] [${i + 1}/${plan.tasks.length}] Generating: ${task.slice(0, 60)}...`);
+        const result = await generateCode(task, allFiles);
+        return result;
       })
     );
 
-    // Agregar arquivos gerados
+    let successCount = 0;
+    let failCount = 0;
     for (const result of taskResults) {
-      if (result.success && result.files) {
-        Object.assign(allFiles, result.files);
+      if (result.status === 'fulfilled' && result.value.success && result.value.files) {
+        Object.assign(allFiles, result.value.files);
+        successCount++;
+      } else {
+        failCount++;
+        if (result.status === 'rejected') {
+          console.error('[Orchestrator] Task failed:', result.reason);
+        } else if (result.status === 'fulfilled') {
+          console.warn('[Orchestrator] Task produced no files:', result.value.error);
+        }
       }
     }
 
     const totalTime = Date.now() - startTime;
-    console.log('[Orchestrator] Complete!', allFiles.length, 'files in', totalTime, 'ms');
+    console.log(`[Orchestrator] Complete! ${successCount} ok / ${failCount} failed | ${Object.keys(allFiles).length} files | ${totalTime}ms`);
+
+    if (Object.keys(allFiles).length === 0) {
+      return {
+        success: false,
+        files: {},
+        plan,
+        error: 'Nenhum arquivo foi gerado. O LLM pode estar temporariamente fora. Tente novamente.',
+      };
+    }
 
     return {
       success: true,
@@ -59,7 +81,7 @@ export async function generateApp(
     return {
       success: false,
       files: {},
-      plan: { specification: '', tasks: [], estimatedComplexity: 'medium' },
+      plan: { specification: userPrompt, tasks: [], estimatedComplexity: 'medium' },
       error: String(error),
     };
   }

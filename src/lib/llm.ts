@@ -3,10 +3,16 @@
  *
  * Endpoint: https://ia.namehost.com.br
  * Auth: nh_3HMKMsoj7pboc-uaMCwkdJfzadshpDvpKGiKAOEQNG4
+ *
+ * Tem fallback automático: tenta Tailscale (local dev) → Namehost (produção)
  */
 
-const LITELLM_BASE_URL = process.env.NEXT_PUBLIC_LITELLM_URL || 'https://ia.namehost.com.br';
-const LITELLM_API_KEY = process.env.LITELLM_API_KEY || 'nh_3HMKMsoj7pboc-uaMCwkdJfzadshpDvpKGiKAOEQNG4';
+const PRIMARY_URL = process.env.NEXT_PUBLIC_LITELLM_URL || 'https://ia.namehost.com.br';
+const PRIMARY_KEY = process.env.LITELLM_API_KEY || 'nh_3HMKMsoj7pboc-uaMCwkdJfzadshpDvpKGiKAOEQNG4';
+
+// Fallback público (sempre funciona do Vercel)
+const FALLBACK_URL = 'https://ia.namehost.com.br';
+const FALLBACK_KEY = 'nh_3HMKMsoj7pboc-uaMCwkdJfzadshpDvpKGiKAOEQNG4';
 
 export interface LLMMessage {
   role: 'system' | 'user' | 'assistant';
@@ -22,6 +28,40 @@ export interface LLMResponse {
   };
 }
 
+async function tryCall(
+  baseUrl: string,
+  apiKey: string,
+  messages: LLMMessage[],
+  model: string,
+  maxTokens: number
+): Promise<LLMResponse> {
+  const response = await fetch(`${baseUrl}/v1/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      max_tokens: maxTokens,
+      temperature: 0.7,
+    }),
+    // Timeout de 8s pra falhar rápido e cair no fallback
+    signal: AbortSignal.timeout(8000),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  const data = await response.json();
+  return {
+    content: data.choices?.[0]?.message?.content || '',
+    usage: data.usage,
+  };
+}
+
 export async function callLLM(
   messages: LLMMessage[],
   model: string = 'claude-sonnet-4-6',
@@ -29,53 +69,27 @@ export async function callLLM(
 ): Promise<LLMResponse> {
   const startTime = Date.now();
 
-  console.log(`[LLM] Calling ${LITELLM_BASE_URL} with model ${model}`);
-
+  // Tenta primário primeiro
   try {
-    const response = await fetch(`${LITELLM_BASE_URL}/v1/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${LITELLM_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        max_tokens: maxTokens,
-        temperature: 0.7,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[LLM] Error ${response.status}:`, errorText);
-      throw new Error(`LLM API error: ${response.status} - ${errorText}`);
-    }
-
-    const data = await response.json();
-    const latency = Date.now() - startTime;
-
-    console.log(`[LLM] ✓ ${model} | ${latency}ms | ${data.usage?.total_tokens || 0} tokens`);
-
-    return {
-      content: data.choices?.[0]?.message?.content || '',
-      usage: data.usage,
-    };
-  } catch (error) {
-    console.error('[LLM] Error:', error);
-    throw error;
+    const result = await tryCall(PRIMARY_URL, PRIMARY_KEY, messages, model, maxTokens);
+    console.log(`[LLM] ✓ ${PRIMARY_URL} | ${model} | ${Date.now() - startTime}ms`);
+    return result;
+  } catch (primaryError) {
+    console.warn(`[LLM] Primary failed (${PRIMARY_URL}):`, String(primaryError).slice(0, 100));
   }
+
+  // Fallback pro Namehost público
+  const result = await tryCall(FALLBACK_URL, FALLBACK_KEY, messages, model, maxTokens);
+  console.log(`[LLM] ✓ ${FALLBACK_URL} (fallback) | ${model} | ${Date.now() - startTime}ms`);
+  return result;
 }
 
 // Modelos disponíveis no proxy
 export const MODELS = {
-  // Claude models
-  HAIKU: 'claude-haiku-4-5',        // Rápido e barato
-  SONNET: 'claude-sonnet-4-6',     // Bom custo-benefício (default)
-  OPUS_47: 'claude-opus-4-7',      // Melhor qualidade
-  OPUS_46: 'claude-opus-4-6',      // Ótima qualidade
-
-  // Default
+  HAIKU: 'claude-haiku-4-5',
+  SONNET: 'claude-sonnet-4-6',
+  OPUS_47: 'claude-opus-4-7',
+  OPUS_46: 'claude-opus-4-6',
   DEFAULT: 'claude-sonnet-4-6',
 } as const;
 
