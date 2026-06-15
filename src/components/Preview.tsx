@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useAppStore } from '@/stores/app-store';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,24 +22,92 @@ const viewportSizes: Record<ViewportSize, { width: number; label: string }> = {
   mobile: { width: 375, label: 'Mobile' },
 };
 
-export function Preview() {
-  const { files } = useAppStore();
-  const [viewport, setViewport] = useState<ViewportSize>('desktop');
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+/**
+ * Converte o JSX do page.tsx em HTML estático executável no iframe
+ * Estratégia simples: injeta o código React compilado direto no HTML
+ * usando Babel standalone + React CDN
+ */
+function buildPreviewHtml(files: Record<string, string>): string {
+  const pageCode = files['app/page.tsx'] || files['page.tsx'] || '';
+  const cssCode = files['app/globals.css'] || files['globals.css'] || '';
 
-  const generatePreviewHtml = () => {
-    const tailwind = `<script src="https://cdn.tailwindcss.com"></script>`;
+  // Extrai só o CSS custom (sem @tailwind que não funciona no CDN)
+  const customCss = cssCode
+    .replace(/@tailwind[^;]*;/g, '')
+    .replace(/@import[^;]*;/g, '')
+    .trim();
 
-    return `<!DOCTYPE html>
+  // Remove imports e export default - vamos criar um component inline
+  let jsxCode = pageCode
+    .replace(/^["']use client["'];?/gm, '')
+    .replace(/^import\s+.*?from\s+['"][^'"]+['"];?\s*$/gm, '')
+    .replace(/export\s+default\s+function\s+\w+/g, 'function App')
+    .replace(/export\s+default\s+/g, '')
+    .trim();
+
+  // Se não tem função, retorna o placeholder
+  if (!jsxCode.includes('function App') && !jsxCode.includes('return')) {
+    return buildPlaceholderHtml(files);
+  }
+
+  return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  ${tailwind}
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    ${customCss}
+  </style>
+  <title>Preview</title>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel" data-presets="env,react">
+    // Stub para ícones do lucide (viram emoji ou texto simples)
+    const Icon = ({name, size=24, className=''}) => {
+      const icons = {
+        'Sun': '☀️', 'Zap': '⚡', 'TrendingUp': '📈', 'Shield': '🛡️', 'Users': '👥',
+        'ArrowRight': '→', 'Menu': '☰', 'X': '✕', 'Check': '✓', 'Star': '★',
+        'Coffee': '☕', 'Heart': '♥', 'Mail': '✉', 'Phone': '📞', 'MapPin': '📍',
+        'Sparkles': '✨', 'Code': '⌨', 'Wand2': '🪄', 'Rocket': '🚀', 'Globe': '🌐',
+        'Play': '▶', 'Search': '🔍', 'Clock': '🕐', 'Calendar': '📅', 'Bell': '🔔',
+        'Settings': '⚙', 'User': '👤', 'Lock': '🔒', 'Eye': '👁', 'Camera': '📷',
+      };
+      return <span className={className} style={{fontSize: size}}>{icons[name] || '•'}</span>;
+    };
+    // Stub para componentes comuns
+    const components = {};
+    const useState = React.useState;
+    const useEffect = React.useEffect;
+    const useRef = React.useRef;
+
+    ${jsxCode}
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(React.createElement(App || (() => null)));
+  </script>
+</body>
+</html>`;
+}
+
+/**
+ * Placeholder genérico quando não tem código pra renderizar
+ */
+function buildPlaceholderHtml(files: Record<string, string>) {
+  const fileCount = Object.keys(files).length;
+  const charCount = Object.values(files).reduce((acc, f) => acc + f.length, 0);
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdn.tailwindcss.com"></script>
   <title>Preview</title>
 </head>
 <body>
@@ -51,17 +119,13 @@ export function Preview() {
       </div>
       <h1 class="text-5xl md:text-6xl font-bold mb-4 leading-tight">Seu app está pronto</h1>
       <p class="text-lg md:text-xl text-white/80 mb-8">Use o chat para pedir modificações ou veja o código na aba Código.</p>
-      <div class="flex flex-wrap gap-3 justify-center">
-        <button class="px-6 py-3 bg-white text-violet-600 rounded-lg font-semibold hover:bg-white/90 transition">Ver demonstração</button>
-        <button class="px-6 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg font-semibold hover:bg-white/20 transition">Saiba mais</button>
-      </div>
       <div class="mt-12 grid grid-cols-3 gap-4">
         <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4">
-          <div class="text-2xl font-bold">${Object.keys(files).length}</div>
+          <div class="text-2xl font-bold">${fileCount}</div>
           <div class="text-xs text-white/60">Arquivos</div>
         </div>
         <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4">
-          <div class="text-2xl font-bold">${Object.values(files).reduce((acc, f) => acc + f.length, 0)}</div>
+          <div class="text-2xl font-bold">${charCount.toLocaleString('pt-BR')}</div>
           <div class="text-xs text-white/60">Caracteres</div>
         </div>
         <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4">
@@ -73,12 +137,29 @@ export function Preview() {
   </div>
 </body>
 </html>`;
-  };
+}
+
+export function Preview() {
+  const { files } = useAppStore();
+  const [viewport, setViewport] = useState<ViewportSize>('desktop');
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const previewHtml = useMemo(() => buildPreviewHtml(files), [files, refreshKey]);
 
   const refreshPreview = () => {
     setIsLoading(true);
     setRefreshKey(k => k + 1);
-    setTimeout(() => setIsLoading(false), 400);
+    setTimeout(() => setIsLoading(false), 600);
+  };
+
+  const openInNewTab = () => {
+    const blob = new Blob([previewHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
   };
 
   const toggleFullscreen = async () => {
@@ -128,6 +209,7 @@ export function Preview() {
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
           )}
           <span>Preview ao vivo</span>
+          <span className="text-white/30 ml-1">({Object.keys(files).length} arquivos)</span>
         </div>
 
         <div className="flex items-center gap-1">
@@ -140,7 +222,7 @@ export function Preview() {
                   onClick={() => setViewport(size)}
                   className={cn(
                     'p-1.5 rounded transition-colors cursor-pointer',
-                    viewport === size
+                    viewport === viewport
                       ? 'bg-white/10 text-white'
                       : 'text-white/40 hover:text-white/80'
                   )}
@@ -161,18 +243,19 @@ export function Preview() {
           </button>
 
           <button
+            onClick={openInNewTab}
+            className="p-1.5 hover:bg-white/5 rounded transition-colors cursor-pointer"
+            title="Abrir em nova aba"
+          >
+            <ExternalLink className="w-3.5 h-3.5 text-white/60" />
+          </button>
+
+          <button
             onClick={toggleFullscreen}
             className="p-1.5 hover:bg-white/5 rounded transition-colors cursor-pointer"
             title="Tela cheia"
           >
             <Maximize2 className="w-3.5 h-3.5 text-white/60" />
-          </button>
-
-          <button
-            className="p-1.5 hover:bg-white/5 rounded transition-colors cursor-pointer"
-            title="Abrir em nova aba"
-          >
-            <ExternalLink className="w-3.5 h-3.5 text-white/60" />
           </button>
         </div>
       </div>
@@ -190,9 +273,10 @@ export function Preview() {
           <iframe
             key={refreshKey}
             ref={iframeRef}
-            className="w-full border-0 block"
+            className="w-full border-0 block bg-white"
             style={{ height: '600px' }}
-            srcDoc={generatePreviewHtml()}
+            srcDoc={previewHtml}
+            sandbox="allow-scripts allow-same-origin"
             title="App Preview"
           />
         </div>
