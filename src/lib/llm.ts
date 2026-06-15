@@ -1,10 +1,12 @@
 /**
- * LLM Integration via LiteLLM
+ * LLM Integration via Proxy Namehost
  *
- * Endpoint: Tailscale network - http://100.126.121.54:4000
+ * Endpoint: https://ia.namehost.com.br
+ * Auth: nh_3HMKMsoj7pboc-uaMCwkdJfzadshpDvpKGiKAOEQNG4
  */
 
-const LITELLM_BASE_URL = process.env.NEXT_PUBLIC_LITELLM_URL || 'http://100.126.121.54:4000';
+const LITELLM_BASE_URL = process.env.NEXT_PUBLIC_LITELLM_URL || 'https://ia.namehost.com.br';
+const LITELLM_API_KEY = process.env.LITELLM_API_KEY || 'nh_3HMKMsoj7pboc-uaMCwkdJfzadshpDvpKGiKAOEQNG4';
 
 export interface LLMMessage {
   role: 'system' | 'user' | 'assistant';
@@ -22,7 +24,7 @@ export interface LLMResponse {
 
 export async function callLLM(
   messages: LLMMessage[],
-  model: string = 'fralib-fast-cheap',
+  model: string = 'claude-sonnet-4-6',
   maxTokens: number = 8192
 ): Promise<LLMResponse> {
   const startTime = Date.now();
@@ -34,9 +36,7 @@ export async function callLLM(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(process.env.LITELLM_API_KEY && {
-          'Authorization': `Bearer ${process.env.LITELLM_API_KEY}`
-        }),
+        'Authorization': `Bearer ${LITELLM_API_KEY}`,
       },
       body: JSON.stringify({
         model,
@@ -49,7 +49,7 @@ export async function callLLM(
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`[LLM] Error ${response.status}:`, errorText);
-      throw new Error(`LiteLLM error: ${response.status} - ${errorText}`);
+      throw new Error(`LLM API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
@@ -67,19 +67,16 @@ export async function callLLM(
   }
 }
 
-// Modelos disponíveis ( LiteLLM)
+// Modelos disponíveis no proxy
 export const MODELS = {
-  // Fast & Cheap - tarefas simples
-  FAST: 'fralib-fast-cheap',
+  // Claude models
+  HAIKU: 'claude-haiku-4-5',        // Rápido e barato
+  SONNET: 'claude-sonnet-4-6',     // Bom custo-benefício (default)
+  OPUS_47: 'claude-opus-4-7',      // Melhor qualidade
+  OPUS_46: 'claude-opus-4-6',      // Ótima qualidade
 
-  // Code generation
-  CODE: 'fralib-builder-strong',
-
-  // Agent - tarefas complexas
-  AGENT: 'fralib-agent-balanced',
-
-  // JSON repair
-  JSON: 'fralib-json-repair',
+  // Default
+  DEFAULT: 'claude-sonnet-4-6',
 } as const;
 
 export default callLLM;

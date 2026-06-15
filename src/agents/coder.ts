@@ -1,6 +1,5 @@
 /**
  * Coder Agent - Gera código React/Next.js
- * Usa LiteLLM para máxima velocidade
  */
 import { callLLM, MODELS, LLMMessage } from '@/lib/llm';
 import type { AgentResponse } from './types';
@@ -15,7 +14,6 @@ Rules:
 - Export components as default when appropriate
 - Include all necessary imports
 - Code must be complete and runnable
-- Always wrap code in proper JSX
 
 Generate code for the requested feature. Return as JSON:
 {
@@ -46,10 +44,9 @@ Generate the code to complete this task. Return as JSON with the files to create
       { role: 'user', content: prompt },
     ];
 
-    const response = await callLLM(messages, MODELS.CODE, 8192);
+    const response = await callLLM(messages, MODELS.SONNET, 8192);
     const content = response.content.trim();
 
-    // Try to extract and parse JSON
     const filesMatch = content.match(/\{[\s\S]*"files"[\s\S]*\}/);
     if (filesMatch) {
       try {
@@ -62,14 +59,12 @@ Generate the code to complete this task. Return as JSON with the files to create
       }
     }
 
-    // Try parsing as direct files object
     const directMatch = content.match(/\{[\s\S]*\}/);
     if (directMatch) {
       try {
         const parsed = JSON.parse(directMatch[0]);
         if (typeof parsed === 'object' && !Array.isArray(parsed)) {
-          // Check if it looks like files
-          const hasFilePaths = Object.keys(parsed).some(k => k.includes('/'));
+          const hasFilePaths = Object.keys(parsed).some(k => k.includes('/') || k.includes('.'));
           if (hasFilePaths) {
             return { success: true, files: parsed };
           }
@@ -79,7 +74,6 @@ Generate the code to complete this task. Return as JSON with the files to create
       }
     }
 
-    // Fallback: return as single file
     return { success: true, content };
   } catch (error) {
     console.error('[Coder] Error:', error);

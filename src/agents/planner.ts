@@ -1,6 +1,5 @@
 /**
  * Planner Agent - Interpreta prompts e planeja geração
- * Usa LiteLLM para máxima velocidade e baixo custo
  */
 import { callLLM, MODELS, LLMMessage } from '@/lib/llm';
 
@@ -32,10 +31,9 @@ export async function planGeneration(userPrompt: string): Promise<GenerationPlan
   ];
 
   try {
-    const response = await callLLM(messages, MODELS.FAST, 1024);
+    const response = await callLLM(messages, MODELS.HAIKU, 1024);
     const content = response.content.trim();
 
-    // Parse JSON response
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
@@ -47,7 +45,7 @@ export async function planGeneration(userPrompt: string): Promise<GenerationPlan
         };
       }
     } catch {
-      // Fallback: create plan from text
+      // Fallback
     }
 
     const tasks = content
