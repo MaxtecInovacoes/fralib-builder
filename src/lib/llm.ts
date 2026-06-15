@@ -57,9 +57,9 @@ async function tryCall(
       messages,
       max_tokens: maxTokens,
       temperature: 0.7,
+      stream: false,
     }),
-    // Timeout curto pra falhar rápido e cair no fallback
-    signal: AbortSignal.timeout(7000),
+    // Sem timeout interno - Vercel controla (Hobby: 10s, Pro: 60s)
   });
 
   if (!response.ok) {
