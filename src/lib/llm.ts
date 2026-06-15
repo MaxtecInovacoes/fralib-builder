@@ -7,15 +7,22 @@
  * Tem fallback automático: tenta Tailscale (local dev) → Namehost (produção)
  */
 
-// Ordem: Namehost primeiro (acessível do Vercel), Tailscale como fallback (dev local)
-const PRIMARY_URL = process.env.NEXT_PUBLIC_LITELLM_URL && process.env.NEXT_PUBLIC_LITELLM_URL.includes('100.126.121.54')
-  ? 'https://ia.namehost.com.br'
-  : (process.env.NEXT_PUBLIC_LITELLM_URL || 'https://ia.namehost.com.br');
-const PRIMARY_KEY = process.env.LITELLM_API_KEY || 'nh_3HMKMsoj7pboc-uaMCwkdJfzadshpDvpKGiKAOEQNG4';
+// Em produção, SEMPRE usa Namehost (Vercel não acessa Tailscale)
+const IS_PROD = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
+const NAMEHOST_URL = 'https://ia.namehost.com.br';
+const NAMEHOST_KEY = 'nh_3HMKMsoj7pboc-uaMCwkdJfzadshpDvpKGiKAOEQNG4';
 
-// Fallback público (sempre funciona do Vercel)
-const FALLBACK_URL = 'https://ia.namehost.com.br';
-const FALLBACK_KEY = 'nh_3HMKMsoj7pboc-uaMCwkdJfzadshpDvpKGiKAOEQNG4';
+// Em dev, pode usar Tailscale (mais rápido). Em prod, sempre Namehost.
+const PRIMARY_URL = IS_PROD
+  ? NAMEHOST_URL
+  : (process.env.NEXT_PUBLIC_LITELLM_URL || NAMEHOST_URL);
+const PRIMARY_KEY = IS_PROD
+  ? NAMEHOST_KEY
+  : (process.env.LITELLM_API_KEY || NAMEHOST_KEY);
+
+// Fallback: Namehost (público)
+const FALLBACK_URL = NAMEHOST_URL;
+const FALLBACK_KEY = NAMEHOST_KEY;
 
 export interface LLMMessage {
   role: 'system' | 'user' | 'assistant';
