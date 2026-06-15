@@ -17,7 +17,7 @@ import {
   Image as ImageIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { generateApp } from '@/agents/orchestrator';
+
 
 const SUGGESTIONS = [
   {
@@ -82,10 +82,21 @@ export function ChatInterface() {
     setStatus('Pensando...');
 
     try {
-      setStatus('Criando especificação...');
-      const result = await generateApp(finalPrompt);
+      setStatus('Gerando app...');
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: finalPrompt }),
+      });
 
-      if (result.success) {
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+
+      const result = await res.json();
+
+      if (result.success && Object.keys(result.files || {}).length > 0) {
         setStatus('');
         const fileCount = Object.keys(result.files).length;
         addMessage({
@@ -100,7 +111,7 @@ export function ChatInterface() {
         addMessage({
           id: generateId(),
           role: 'assistant',
-          content: `Erro: ${result.error || 'Falha ao gerar app'}. Tente novamente.`,
+          content: `❌ ${result.error || 'Não consegui gerar o app. Tente reformular o prompt.'}`,
           timestamp: new Date(),
         });
       }
@@ -109,7 +120,7 @@ export function ChatInterface() {
       addMessage({
         id: generateId(),
         role: 'assistant',
-        content: `Erro de conexão: ${error instanceof Error ? error.message : 'Desconhecido'}`,
+        content: `❌ Erro: ${error instanceof Error ? error.message : 'Desconhecido'}. Tente novamente.`,
         timestamp: new Date(),
       });
     } finally {
