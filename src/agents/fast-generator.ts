@@ -35,58 +35,41 @@ Generate a COMPLETE, RUNNABLE app in ONE response with MULTIPLE organized files.
 
 OUTPUT FORMAT: A single JSON object (NO markdown, NO fences, NO commentary before/after):
 {
-  "specification": "Brief description of the app",
+  "specification": "Brief description",
   "files": {
-    "index.html": "<full HTML with #root div>",
-    "package.json": "<full package.json with vite, react, typescript, tailwind, lucide-react, framer-motion>",
-    "vite.config.ts": "<full vite config>",
-    "tsconfig.json": "<full tsconfig>",
-    "tailwind.config.js": "<full tailwind config>",
-    "src/main.tsx": "<full entry point with ReactDOM.createRoot>",
-    "src/App.tsx": "<main App that imports and composes all components>",
-    "src/index.css": "<full CSS with @tailwind directives>",
-    "src/components/Header.tsx": "<full component>",
-    "src/components/Hero.tsx": "<full component>",
-    "src/components/Features.tsx": "<full component>",
-    "src/components/Footer.tsx": "<full component>"
+    "package.json": "...",
+    "index.html": "...",
+    "vite.config.ts": "...",
+    "tsconfig.json": "...",
+    "src/main.tsx": "...",
+    "src/index.css": "...",
+    "src/App.tsx": "..."
   }
 }
 
 🚨 CRITICAL RULES:
-1. Generate 6-10 files (ESSENTIAL files only - not too many!)
+1. You MUST generate these 7 files in EXACTLY this structure:
+   - package.json
+   - index.html
+   - vite.config.ts
+   - tsconfig.json
+   - src/main.tsx
+   - src/index.css
+   - src/App.tsx (MAIN FILE - put ALL components INLINE in this file)
 2. Each file MUST be COMPLETE - no placeholders, no "..."
 3. Use Vite + React 18 + TypeScript
 4. Use Tailwind CSS for styling
 5. Use lucide-react for icons (we stub these to emoji)
-6. Use framer-motion for animations (motion/react)
-7. Each component is SEPARATE file (Header.tsx, Hero.tsx, Features.tsx, etc)
-8. App.tsx IMPORTS and composes all components
-9. MAKE IT CINEMATIC AND STUNNING:
+6. The MAIN app code goes in src/App.tsx - include Header, Hero, Features, Footer ALL INLINE in this file as separate component functions
+7. MAKE IT CINEMATIC AND STUNNING:
    - Full-viewport hero sections
-   - Smooth animations and transitions
    - Glassmorphism cards (backdrop-blur, bg-white/5)
    - Gradient backgrounds (bg-gradient-to-br from-X via-Y to-Z)
    - Floating elements, hover effects
    - High-quality typography
    - Responsive (mobile-first)
-10. ALL string values: use double quotes, escape newlines as \\n and quotes as \\"
-11. KEEP EACH FILE UNDER 300 LINES - be concise but impactful
-
-EXAMPLE FILE STRUCTURE (FOLLOW THIS PATTERN):
-- index.html (basic)
-- package.json (with vite, react, typescript, tailwind, lucide-react, framer-motion)
-- vite.config.ts (basic)
-- tsconfig.json (basic)
-- src/main.tsx (entry)
-- src/App.tsx (composes components)
-- src/index.css (with @tailwind directives)
-- src/components/Header.tsx
-- src/components/Hero.tsx
-- src/components/Features.tsx (or similar sections)
-- src/components/Footer.tsx
-
-Don't generate extra config files (tailwind.config.js can be skipped - use defaults).
-Skip .env.example, .gitignore, metadata.json - we only need the code files.`;
+8. ALL string values: use double quotes, escape newlines as \\n and quotes as \\"
+9. The 7 files listed above are MANDATORY - don't skip any`;
 
 function extractJSON(text: string): any {
   let cleaned = text.trim();
