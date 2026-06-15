@@ -106,7 +106,10 @@ export async function fastGenerate(userPrompt: string): Promise<FastGenResult> {
       }
     }
 
-    console.warn('[FastGen] Failed to extract files. First 500 chars:', content.slice(0, 500));
+    // Debug: mostra o que está chegando
+    console.warn('[FastGen] Failed to extract. Content length:', content.length);
+    console.warn('[FastGen] First 300:', content.slice(0, 300));
+    console.warn('[FastGen] Last 300:', content.slice(-300));
     return {
       success: false,
       files: {},
