@@ -80,7 +80,7 @@ export async function fastGenerate(userPrompt: string): Promise<FastGenResult> {
   ];
 
   try {
-    const response = await callLLM(messages, MODELS.SONNET, 8000);
+    const response = await callLLM(messages, MODELS.SONNET, 4000);
     const content = response.content.trim();
     console.log(`[FastGen] Response: ${content.length} chars`);
 

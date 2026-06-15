@@ -7,7 +7,10 @@
  * Tem fallback automático: tenta Tailscale (local dev) → Namehost (produção)
  */
 
-const PRIMARY_URL = process.env.NEXT_PUBLIC_LITELLM_URL || 'https://ia.namehost.com.br';
+// Ordem: Namehost primeiro (acessível do Vercel), Tailscale como fallback (dev local)
+const PRIMARY_URL = process.env.NEXT_PUBLIC_LITELLM_URL && process.env.NEXT_PUBLIC_LITELLM_URL.includes('100.126.121.54')
+  ? 'https://ia.namehost.com.br'
+  : (process.env.NEXT_PUBLIC_LITELLM_URL || 'https://ia.namehost.com.br');
 const PRIMARY_KEY = process.env.LITELLM_API_KEY || 'nh_3HMKMsoj7pboc-uaMCwkdJfzadshpDvpKGiKAOEQNG4';
 
 // Fallback público (sempre funciona do Vercel)
@@ -48,7 +51,7 @@ async function tryCall(
       temperature: 0.7,
     }),
     // Timeout curto pra falhar rápido e cair no fallback
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(7000),
   });
 
   if (!response.ok) {
