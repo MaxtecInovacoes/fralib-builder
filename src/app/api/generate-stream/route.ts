@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
-  const { prompt } = await request.json();
+  const { prompt, theme } = await request.json();
 
   if (!prompt) {
     return new Response(JSON.stringify({ error: 'Prompt is required' }), {
@@ -30,12 +30,12 @@ export async function POST(request: NextRequest) {
       };
 
       // Envia ping inicial pra confirmar conexão
-      send('start', { prompt, timestamp: Date.now() });
+      send('start', { prompt, theme, timestamp: Date.now() });
 
       try {
         await fastGenerate(prompt, (e: GenEvent) => {
           send(e.type, e);
-        });
+        }, theme);
       } catch (err: any) {
         send('error', { error: String(err) });
       } finally {

@@ -1,10 +1,12 @@
 /**
- * Fast Generator - Planner + Coder em UMA chamada
+ * Fast Generator - Gera estrutura COMPLETA estilo AI Studio
  *
- * Estratégia: 1 prompt = 3 arquivos essenciais (app/page.tsx, app/layout.tsx, app/globals.css)
- * Usa Haiku (rápido). max_tokens alto pra não truncar.
+ * Estratégia: 1 chamada LLM que retorna 10-15 arquivos organizados
+ * - index.html, package.json, vite.config.ts (boilerplate)
+ * - src/main.tsx, src/App.tsx, src/index.css
+ * - src/components/* (Header, Hero, Features, etc)
  *
- * Emite eventos de progresso via callback pra UI estilo Lovable.
+ * Usa Haiku (rápido). max_tokens MUITO alto (32k) pra caber tudo.
  */
 import { callLLM, MODELS, LLMMessage } from '@/lib/llm';
 
@@ -27,30 +29,63 @@ export interface GenEvent {
   error?: string;
 }
 
-const FAST_SYSTEM_PROMPT = `You build Next.js 14+ App Router apps. Generate COMPLETE, RUNNABLE code in ONE response.
+const FAST_SYSTEM_PROMPT = `You are an elite full-stack developer building Vite + React + TypeScript SPAs (like Google AI Studio, Vercel, Linear).
 
-OUTPUT: A single JSON object (NO markdown, NO fences, NO commentary before/after):
+Generate a COMPLETE, RUNNABLE app in ONE response with MULTIPLE organized files.
+
+OUTPUT FORMAT: A single JSON object (NO markdown, NO fences, NO commentary before/after):
 {
-  "specification": "Brief description",
+  "specification": "Brief description of the app",
   "files": {
-    "app/layout.tsx": "FULL file content as a string",
-    "app/page.tsx": "FULL file content as a string",
-    "app/globals.css": "FULL CSS as a string"
+    "index.html": "<full HTML with #root div>",
+    "package.json": "<full package.json with vite, react, typescript, tailwind, lucide-react, framer-motion>",
+    "vite.config.ts": "<full vite config>",
+    "tsconfig.json": "<full tsconfig>",
+    "tailwind.config.js": "<full tailwind config>",
+    "src/main.tsx": "<full entry point with ReactDOM.createRoot>",
+    "src/App.tsx": "<main App that imports and composes all components>",
+    "src/index.css": "<full CSS with @tailwind directives>",
+    "src/components/Header.tsx": "<full component>",
+    "src/components/Hero.tsx": "<full component>",
+    "src/components/Features.tsx": "<full component>",
+    "src/components/Footer.tsx": "<full component>"
   }
 }
 
-CRITICAL RULES:
-1. ALL 3 FILES MUST BE PRESENT in the response
-2. Each file must be COMPLETE - no "// rest of code", no "..." placeholders
-3. Use 'use client' in app/page.tsx (it's interactive)
+🚨 CRITICAL RULES:
+1. Generate 8-15 files (MORE = better quality, like AI Studio)
+2. Each file MUST be COMPLETE - no placeholders, no "..."
+3. Use Vite + React 18 + TypeScript (NOT Next.js - this is a single-page app)
 4. Use Tailwind CSS for styling
-5. Use lucide-react for icons (import from 'lucide-react')
-6. app/page.tsx must include: Navbar, Hero, Features grid, Pricing or CTA, Footer - all inline
-7. app/layout.tsx: import './globals.css', export metadata, RootLayout with html/body
-8. app/globals.css: @tailwind directives, custom CSS variables, scrollbar styles
-9. Make it visually stunning: gradients, hover effects, animations, modern typography
-10. Use semantic colors (e.g., purple gradient for finance, blue for tech, etc.)
-11. ALL string values: use double quotes, escape newlines as \\n and quotes as \\"`;
+5. Use lucide-react for icons
+6. Use framer-motion for animations (motion/react)
+7. EACH component is SEPARATE file (Header.tsx, Hero.tsx, Features.tsx, Footer.tsx, etc)
+8. App.tsx IMPORTS and COMPOSES all components
+9. The design must be CINEMATIC and STUNNING:
+   - Full-viewport hero sections
+   - Smooth animations and transitions
+   - Glassmorphism cards (backdrop-blur, bg-white/5)
+   - Gradient backgrounds (bg-gradient-to-br from-X via-Y to-Z)
+   - Floating elements, parallax effects
+   - High-quality typography
+   - Hover effects with scale/color changes
+   - Responsive (mobile-first)
+10. ALL string values: use double quotes, escape newlines as \\n and quotes as \\"
+11. Make it FEEL like a $10k landing page from a top design agency
+
+EXAMPLE FILE STRUCTURE FOR A LANDING PAGE:
+- index.html, package.json, vite.config.ts, tsconfig.json
+- src/main.tsx, src/App.tsx, src/index.css
+- src/components/Header.tsx
+- src/components/Hero.tsx
+- src/components/Features.tsx
+- src/components/Stats.tsx
+- src/components/Testimonials.tsx
+- src/components/Pricing.tsx
+- src/components/CTA.tsx
+- src/components/Footer.tsx
+
+Remember: QUALITY OVER QUANTITY of features. But 10+ files shows organization.`;
 
 function extractJSON(text: string): any {
   let cleaned = text.trim();
@@ -79,24 +114,29 @@ function extractJSON(text: string): any {
 
 export async function fastGenerate(
   userPrompt: string,
-  onEvent?: (e: GenEvent) => void
+  onEvent?: (e: GenEvent) => void,
+  themePrompt?: string
 ): Promise<FastGenResult> {
   const emit = onEvent || (() => {});
   const start = Date.now();
 
   emit({ type: 'thinking', message: 'Analisando seu prompt...' });
 
+  const systemPrompt = themePrompt
+    ? `${FAST_SYSTEM_PROMPT}\n\n🎨 DESIGN THEME:\n${themePrompt}`
+    : FAST_SYSTEM_PROMPT;
+
   const messages: LLMMessage[] = [
-    { role: 'system', content: FAST_SYSTEM_PROMPT },
-    { role: 'user', content: `Build this app: ${userPrompt}` },
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: `Build this complete app: ${userPrompt}\n\nGenerate ALL necessary files for a production-ready Vite + React + TypeScript app with stunning cinematic UI.` },
   ];
 
   try {
-    emit({ type: 'planning', message: 'Planejando estrutura do app...' });
+    emit({ type: 'planning', message: 'Planejando arquitetura completa...' });
     emit({ type: 'connecting', message: 'Conectando ao Claude (Haiku 4.5)...' });
-    emit({ type: 'generating', message: 'Gerando código (pode levar 20-40s)...' });
+    emit({ type: 'generating', message: 'Gerando código completo (pode levar 30-60s)...' });
 
-    const response = await callLLM(messages, MODELS.HAIKU, 16000);
+    const response = await callLLM(messages, MODELS.HAIKU, 32000);
     const content = response.content.trim();
     const llmTime = Date.now() - start;
     console.log(`[FastGen] LLM ${llmTime}ms | ${content.length} chars`);
@@ -109,12 +149,10 @@ export async function fastGenerate(
       const files: Record<string, string> = {};
       for (let i = 0; i < allFiles.length; i++) {
         const [path, val] = allFiles[i];
-        if (typeof val === 'string' && val.length > 20 && /^[a-zA-Z0-9\-_./]+$/.test(path)) {
+        if (typeof val === 'string' && val.length > 10 && /^[a-zA-Z0-9\-_./]+$/.test(path)) {
           files[path] = val;
-          // Emite evento pra cada arquivo
           emit({ type: 'file', file: path, index: i + 1, total: allFiles.length });
-          // Pequeno delay pra UI mostrar progressão
-          await new Promise(r => setTimeout(r, 100));
+          await new Promise(r => setTimeout(r, 50));
         }
       }
       if (Object.keys(files).length > 0) {

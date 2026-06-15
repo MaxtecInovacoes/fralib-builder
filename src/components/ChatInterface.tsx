@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from 'react';
 import { useAppStore } from '@/stores/app-store';
 import { generateId } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { ThemeSelector } from '@/components/ThemeSelector';
+import { DEFAULT_THEME, type DesignTheme } from '@/lib/themes';
 import {
   Send,
   Loader2,
@@ -49,6 +51,7 @@ export function ChatInterface() {
   const [status, setStatus] = useState<string>('');
   const [elapsed, setElapsed] = useState(0);
   const [progressFiles, setProgressFiles] = useState<{ name: string; status: 'pending' | 'done' }[]>([]);
+  const [selectedTheme, setSelectedTheme] = useState<DesignTheme>(DEFAULT_THEME);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -102,7 +105,7 @@ export function ChatInterface() {
       const res = await fetch('/api/generate-stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: finalPrompt }),
+        body: JSON.stringify({ prompt: finalPrompt, theme: selectedTheme.prompt }),
       });
 
       if (!res.ok || !res.body) {
@@ -342,6 +345,11 @@ export function ChatInterface() {
 
       {/* Input area */}
       <div className="p-3 border-t border-white/5 bg-[#0a0a0f]">
+        <ThemeSelector
+          selected={selectedTheme}
+          onChange={setSelectedTheme}
+          disabled={isGenerating}
+        />
         <div className="relative flex items-end gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2 focus-within:border-violet-500/40 focus-within:bg-white/[0.07] transition-colors">
           <textarea
             ref={textareaRef}
